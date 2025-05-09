@@ -1,182 +1,174 @@
 # laticinios_armazem/models.py
 
-from datetime import datetime, timedelta
+from datetime import datetime, date
+from typing import Optional, List, Dict, Any
 
-# --- Dados em Memória (Simulação de Banco de Dados) ---
-# Em um sistema real, isso viria de um banco de dados.
-db_usuarios = {
-    "operador1": {"senha": "senha123", "funcao": "operador", "nome": "João Operador"},
-    "gerente1": {"senha": "senhaforte", "funcao": "gerente", "nome": "Maria Gerente"}
-}
-
-db_areas_armazem = {
-    "A1": {"nome": "Área A1 - Refrigerados Rápidos", "produtos": []},
-    "B2": {"nome": "Área B2 - Congelados Profundos", "produtos": []},
-    "C3": {"nome": "Área C3 - Secos Validade Longa", "produtos": []},
-}
-
-db_vendas_registradas = []
-db_produtos_catalogo = [ # Catálogo de produtos que podem existir
-    {"id": "LEITE001", "nome": "Leite Integral UHT 1L"},
-    {"id": "IOG002", "nome": "Iogurte Natural Copo 170g"},
-    {"id": "QUE003", "nome": "Queijo Minas Frescal 500g"},
-    {"id": "MAN004", "nome": "Manteiga com Sal 200g"}
-]
-
-# --- Classes do Modelo ---
-
-class ProdutoLacteo:
-    def __init__(self, id_produto_catalogo: str, nome: str, quantidade: int, data_validade: str, lote: str):
-        """
-        Representa um lote específico de um produto lácteo no armazém.
-        data_validade deve estar no formato 'YYYY-MM-DD'.
-        """
-        self.id_produto_catalogo = id_produto_catalogo # ID do tipo de produto (ex: LEITE001)
-        self.nome = nome
-        self.quantidade = quantidade
-        try:
-            self.data_validade = datetime.strptime(data_validade, '%Y-%m-%d').date()
-        except ValueError:
-            raise ValueError("Formato de data_validade inválido. Use YYYY-MM-DD.")
-        self.lote = lote
-
-    def __repr__(self):
-        return f"<ProdutoLacteo {self.nome} (Lote: {self.lote}, Qtd: {self.quantidade}, Val: {self.data_validade})>"
-
-    def to_dict(self):
-        return {
-            "id_produto_catalogo": self.id_produto_catalogo,
-            "nome": self.nome,
-            "quantidade": self.quantidade,
-            "data_validade": self.data_validade.strftime('%Y-%m-%d'),
-            "lote": self.lote
-        }
-
-class AreaArmazem:
-    def __init__(self, id_area: str, nome: str):
-        self.id_area = id_area
-        self.nome = nome
-        # Usaremos os produtos diretamente de db_areas_armazem para simplificar
-        # self.produtos = [] # Lista de objetos ProdutoLacteo
-
-    def adicionar_produto(self, produto: ProdutoLacteo):
-        """Adiciona um produto à área. Se já existir um produto com mesmo ID e lote, atualiza a quantidade."""
-        encontrado = False
-        for p_existente in db_areas_armazem[self.id_area]["produtos"]:
-            if p_existente.id_produto_catalogo == produto.id_produto_catalogo and p_existente.lote == produto.lote and p_existente.data_validade == produto.data_validade:
-                p_existente.quantidade += produto.quantidade
-                encontrado = True
-                break
-        if not encontrado:
-            db_areas_armazem[self.id_area]["produtos"].append(produto)
-
-    def remover_produto(self, id_produto_catalogo: str, lote: str, quantidade_remover: int) -> bool:
-        """Remove uma quantidade de um produto específico da área."""
-        for produto in db_areas_armazem[self.id_area]["produtos"]:
-            if produto.id_produto_catalogo == id_produto_catalogo and produto.lote == lote:
-                if produto.quantidade >= quantidade_remover:
-                    produto.quantidade -= quantidade_remover
-                    if produto.quantidade == 0:
-                        # Remove o produto da lista se a quantidade zerar
-                        db_areas_armazem[self.id_area]["produtos"].remove(produto)
-                    return True
-                else:
-                    # Quantidade insuficiente
-                    return False
-        return False # Produto não encontrado
-
-    def listar_produtos(self) -> list:
-        """Retorna a lista de produtos na área."""
-        return db_areas_armazem[self.id_area]["produtos"]
-
-    def to_dict(self):
-        return {
-            "id_area": self.id_area,
-            "nome": self.nome,
-            "produtos": [p.to_dict() for p in self.listar_produtos()]
-        }
-
-class Venda:
-    def __init__(self, id_produto_catalogo: str, nome_produto: str, lote: str, quantidade_vendida: int, destino: str, area_origem_id: str, data_hora: datetime = None):
-        self.id_produto_catalogo = id_produto_catalogo
-        self.nome_produto = nome_produto
-        self.lote = lote
-        self.quantidade_vendida = quantidade_vendida
-        self.destino = destino
-        self.area_origem_id = area_origem_id
-        self.data_hora = data_hora or datetime.now()
-
-    def __repr__(self):
-        return f"<Venda {self.quantidade_vendida}x {self.nome_produto} (Lote: {self.lote}) para {self.destino} em {self.data_hora}>"
-
-    def to_dict(self):
-        return {
-            "id_produto_catalogo": self.id_produto_catalogo,
-            "nome_produto": self.nome_produto,
-            "lote": self.lote,
-            "quantidade_vendida": self.quantidade_vendida,
-            "destino": self.destino,
-            "area_origem_id": self.area_origem_id,
-            "data_hora": self.data_hora.strftime('%Y-%m-%d %H:%M:%S')
-        }
+# Bancos de dados simulados
+db_usuarios: Dict[str, Dict[str, Any]] = {}
+db_areas_armazem: Dict[str, Dict[str, Any]] = {}
+db_vendas_registradas: List[Dict[str, Any]] = []
+db_produtos_catalogo: Dict[str, Dict[str, str]] = {}
 
 class Usuario:
     def __init__(self, username: str, funcao: str, nome: str):
         self.username = username
-        self.funcao = funcao # 'operador', 'gerente'
+        self.funcao = funcao
         self.nome = nome
 
     @staticmethod
-    def verificar_senha(username, senha_fornecida):
+    def verificar_senha(username: str, senha: str) -> Optional['Usuario']:
         user_data = db_usuarios.get(username)
-        if user_data and user_data["senha"] == senha_fornecida:
-            return Usuario(username, user_data["funcao"], user_data["nome"])
+        if user_data and user_data['senha'] == senha:
+            return Usuario(username, user_data['funcao'], user_data['nome'])
         return None
 
-    def tem_permissao(self, permissao_requerida: str) -> bool:
-        """Verifica se o usuário tem a permissão necessária.
-        Ex: 'gerenciar_estoque', 'ver_relatorios_completos'
-        """
-        if self.funcao == 'gerente':
-            return True # Gerente tem todas as permissões neste modelo simples
-        elif self.funcao == 'operador':
-            return permissao_requerida in ['visualizar_armazem', 'registrar_venda', 'ver_estoque_area']
+    def tem_permissao(self, permissao: str) -> bool:
+        permissoes_por_funcao = {
+            'gerente': ['visualizar_armazem', 'detalhes_area', 'gerente', 'registrar_venda'],
+            'operador': ['visualizar_armazem', 'detalhes_area', 'registrar_venda']
+        }
+        return permissao in permissoes_por_funcao.get(self.funcao, [])
+
+class ProdutoLacteo:
+    def __init__(self, id_catalogo_produto: str, nome: str, quantidade: int, data_validade_str: str, lote: str):
+        self.id_catalogo_produto = id_catalogo_produto
+        self.nome = nome
+        self.quantidade = quantidade
+        self.data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d').date()
+        self.lote = lote
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id_catalogo_produto': self.id_catalogo_produto,
+            'nome': self.nome,
+            'quantidade': self.quantidade,
+            'data_validade': self.data_validade.strftime('%Y-%m-%d'),
+            'lote': self.lote
+        }
+
+class AreaArmazem:
+    def __init__(self, id_area: str, nome: str, tipo_armazenamento: str):
+        self.id_area = id_area
+        self.nome = nome
+        self.tipo_armazenamento = tipo_armazenamento
+        if id_area not in db_areas_armazem:
+            db_areas_armazem[id_area] = {'nome': nome, 'tipo_armazenamento': tipo_armazenamento, 'produtos': []}
+
+    @staticmethod
+    def buscar_por_id(id_area: str) -> Optional['AreaArmazem']:
+        area_data = db_areas_armazem.get(id_area)
+        if area_data:
+            return AreaArmazem(id_area, area_data['nome'], area_data['tipo_armazenamento'])
+        return None
+
+    @staticmethod
+    def listar_todas() -> List['AreaArmazem']:
+        return [AreaArmazem(id_area, data['nome'], data['tipo_armazenamento'])
+                for id_area, data in db_areas_armazem.items()]
+
+    def adicionar_produto(self, produto: ProdutoLacteo) -> None:
+        area_data = db_areas_armazem[self.id_area]
+        for existing_product in area_data['produtos']:
+            if (existing_product.id_catalogo_produto == produto.id_catalogo_produto and
+                existing_product.lote == produto.lote):
+                existing_product.quantidade += produto.quantidade
+                return
+        area_data['produtos'].append(produto)
+
+    def listar_produtos(self) -> List[ProdutoLacteo]:
+        return db_areas_armazem[self.id_area]['produtos']
+
+    def remover_produto(self, id_catalogo_produto: str, lote: str, quantidade: int) -> bool:
+        area_data = db_areas_armazem[self.id_area]
+        for i, produto in enumerate(area_data['produtos']):
+            if produto.id_catalogo_produto == id_catalogo_produto and produto.lote == lote:
+                if produto.quantidade < quantidade:
+                    return False
+                produto.quantidade -= quantidade
+                if produto.quantidade == 0:
+                    area_data['produtos'].pop(i)
+                return True
         return False
 
-# --- Funções Auxiliares do Modelo (interação com 'db_') ---
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id_area': self.id_area,
+            'nome': self.nome,
+            'tipo_armazenamento': self.tipo_armazenamento,
+            'produtos': [p.to_dict() for p in self.listar_produtos()]
+        }
 
-def get_area_por_id(id_area: str) -> AreaArmazem | None:
-    dados_area = db_areas_armazem.get(id_area)
-    if dados_area:
-        return AreaArmazem(id_area, dados_area["nome"])
-    return None
+class Venda:
+    def __init__(self, id_catalogo_produto: str, nome: str, lote: str, data_validade_produto: str,
+                 quantidade_vendida: int, destino: str, area_origem_id: str, usuario_responsavel: str):
+        self.id_catalogo_produto = id_catalogo_produto
+        self.nome = nome
+        self.lote = lote
+        self.data_validade_produto = data_validade_produto
+        self.quantidade_vendida = quantidade_vendida
+        self.destino = destino
+        self.area_origem_id = area_origem_id
+        self.usuario_responsavel = usuario_responsavel
+        self.data_hora = datetime.now()
 
-def listar_todas_as_areas() -> list:
-    return [AreaArmazem(id_a, dados['nome']) for id_a, dados in db_areas_armazem.items()]
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id_catalogo_produto': self.id_catalogo_produto,
+            'nome': self.nome,
+            'lote': self.lote,
+            'data_validade_produto': self.data_validade_produto,
+            'quantidade_vendida': self.quantidade_vendida,
+            'destino': self.destino,
+            'area_origem_id': self.area_origem_id,
+            'usuario_responsavel': self.usuario_responsavel,
+            'data_hora': self.data_hora.isoformat()
+        }
 
-def registrar_venda_no_db(venda: Venda):
-    db_vendas_registradas.append(venda)
+    @staticmethod
+    def registrar(venda: 'Venda') -> None:
+        db_vendas_registradas.append(venda)
 
-def get_produto_catalogo_por_id(id_produto_catalogo: str) -> dict | None:
-    for prod in db_produtos_catalogo:
-        if prod["id"] == id_produto_catalogo:
-            return prod
-    return None
+    @staticmethod
+    def listar_todas() -> List['Venda']:
+        return db_vendas_registradas
 
-def popular_dados_iniciais():
-    """Popula o armazém com alguns produtos para demonstração."""
-    if not any(area_data["produtos"] for area_data in db_areas_armazem.values()): # Popula apenas se estiver vazio
-        area_a1 = get_area_por_id("A1")
-        area_b2 = get_area_por_id("B2")
+def get_produto_catalogo_por_id(id_produto: str) -> Optional[Dict[str, str]]:
+    return db_produtos_catalogo.get(id_produto)
 
-        if area_a1:
-            area_a1.adicionar_produto(ProdutoLacteo("LEITE001", "Leite Integral UHT 1L", 100, (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'), "LOTE2025A"))
-            area_a1.adicionar_produto(ProdutoLacteo("IOG002", "Iogurte Natural Copo 170g", 50, (datetime.now() + timedelta(days=15)).strftime('%Y-%m-%d'), "LOTE2025B"))
-            area_a1.adicionar_produto(ProdutoLacteo("IOG002", "Iogurte Natural Copo 170g", 30, (datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'), "LOTE2025C")) # Lote próximo da validade
-        if area_b2:
-            area_b2.adicionar_produto(ProdutoLacteo("QUE003", "Queijo Minas Frescal 500g", 70, (datetime.now() + timedelta(days=10)).strftime('%Y-%m-%d'), "LOTE2025D"))
-            area_b2.adicionar_produto(ProdutoLacteo("MAN004", "Manteiga com Sal 200g", 40, (datetime.now() + timedelta(days=60)).strftime('%Y-%m-%d'), "LOTE2025E"))
-        print("Dados iniciais populados.")
+def popular_dados_iniciais() -> None:
+    db_usuarios.update({
+        'operador1': {'senha': 'senha123', 'funcao': 'operador', 'nome': 'João Silva'},
+        'gerente1': {'senha': 'senhaforte', 'funcao': 'gerente', 'nome': 'Maria Oliveira'}
+    })
 
-# Chama a função para popular os dados quando o módulo é carregado (para desenvolvimento)
-popular_dados_iniciais()
+    db_produtos_catalogo.update({
+        'LEITE001': {'nome': 'Leite Integral UHT 1L'},
+        'IOG002': {'nome': 'Iogurte Natural Copo 170g'},
+        'QUE003': {'nome': 'Queijo Minas Frescal 500g'},
+        'MAN004': {'nome': 'Manteiga com Sal 200g'}
+    })
+
+    db_areas_armazem.update({
+        'A1': {
+            'nome': 'Refrigerados Rápidos',
+            'tipo_armazenamento': 'refrigerado',
+            'produtos': [
+                ProdutoLacteo('LEITE001', 'Leite Integral UHT 1L', 100, '2025-05-20', 'LOTE2025A'),
+                ProdutoLacteo('IOG002', 'Iogurte Natural Copo 170g', 50, '2025-05-15', 'LOTE2025B'),
+                ProdutoLacteo('IOG002', 'Iogurte Natural Copo 170g', 30, '2025-05-10', 'LOTE2025C')
+            ]
+        },
+        'B2': {
+            'nome': 'Congelados Profundos',
+            'tipo_armazenamento': 'congelado',
+            'produtos': [
+                ProdutoLacteo('QUE003', 'Queijo Minas Frescal 500g', 70, '2025-05-19', 'LOTE2025D'),
+                ProdutoLacteo('MAN004', 'Manteiga com Sal 200g', 40, '2025-07-08', 'LOTE2025E')
+            ]
+        },
+        'C3': {
+            'nome': 'Estoque Seco',
+            'tipo_armazenamento': 'seco',
+            'produtos': []
+        }
+    })

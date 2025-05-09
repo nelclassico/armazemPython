@@ -1,247 +1,164 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Detalhes da Área {{ area.id_area }}{% endblock %}
+{% block title %}
+  {{ area.nome }} - Detalhes
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Área {{ area.id_area }}: {{ area.nome }}</h1>
-    <a href="{{ url_for('visualizar_armazem') }}" class="btn btn-secondary">Voltar para Visão Geral</a>
-</div>
+  <div class="container mt-4">
+    <!-- Título da Página -->
+    <h2 class="mb-3">{{ area.nome }} ({{ area.tipo_armazenamento | capitalize }})</h2>
+    
+    <!-- Link para Voltar -->
+    <a href="{{ url_for('pagina_inicial_armazem') }}" class="btn btn-secondary mb-3">
+      <i class="fas fa-arrow-left"></i> Voltar para Visão Geral
+    </a>
 
-<div class="row">
-    <div class="col-md-7">
-        <h2>Produtos na Área</h2>
-        {% if produtos %}
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Produto</th>
-                        <th>Lote</th>
-                        <th>Quantidade</th>
-                        <th>Data de Validade</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for produto in produtos %}
-                    <tr class="{{ 'table-warning' if (produto.data_validade - today_date).days < 7 and (produto.data_validade - today_date).days >= 0 else 'table-danger' if (produto.data_validade - today_date).days < 0 else '' }}">
-                        <td>{{ produto.nome }} (ID: {{ produto.id_produto_catalogo }})</td>
-                        <td>{{ produto.lote }}</td>
-                        <td>{{ produto.quantidade }}</td>
-                        <td>{{ produto.data_validade.strftime('%d/%m/%Y') }}
-                            {% if (produto.data_validade - today_date).days < 0 %}
-                                <span class="badge bg-danger">VENCIDO</span>
-                            {% elif (produto.data_validade - today_date).days < 7 %}
-                                <span class="badge bg-warning text-dark">Próximo Val.</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-success btn-vender-rapido"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#vendaModal"
-                                    data-idprod="{{ produto.id_produto_catalogo }}"
-                                    data-nomeprod="{{ produto.nome }}"
-                                    data-lote="{{ produto.lote }}"
-                                    data-qtdmax="{{ produto.quantidade }}">
-                                Vender
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>Nenhum produto encontrado nesta área.</p>
-        {% endif %}
-    </div>
+    <!-- Alertas -->
+    {% include '_alerts.html' %}
 
-    <div class="col-md-5">
-        {% if usuario_logado_funcao == 'gerente' %}
-        <div class="card mb-4">
-            <div class="card-header">
-                Adicionar Produto a esta Área ({{ area.id_area }})
-            </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('adicionar_produto_area', id_area=area.id_area) }}">
-                    <div class="mb-3">
-                        <label for="id_produto_catalogo" class="form-label">Produto do Catálogo:</label>
-                        <select class="form-select" id="id_produto_catalogo" name="id_produto_catalogo" required>
-                            <option value="" disabled selected>Selecione um produto</option>
-                            {% for prod_cat in produtos_catalogo %}
-                            <option value="{{ prod_cat.id }}">{{ prod_cat.nome }} (ID: {{ prod_cat.id }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="quantidade_add" class="form-label">Quantidade:</label>
-                        <input type="number" class="form-control" id="quantidade_add" name="quantidade" min="1" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="data_validade_add" class="form-label">Data de Validade:</label>
-                        <input type="date" class="form-control" id="data_validade_add" name="data_validade" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="lote_add" class="form-label">Lote:</label>
-                        <input type="text" class="form-control" id="lote_add" name="lote" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Adicionar Produto</button>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
-        <h4>Registrar Venda da Área {{ area.id_area }}</h4>
-         <p>Clique no botão "Vender" na tabela de produtos para preencher os dados da venda abaixo ou preencha manualmente.</p>
-        
-        <div class="card">
-            <div class="card-header">
-                Formulário de Venda
-            </div>
-            <div class="card-body">
-                 <form id="formVenda" method="POST" action="{{ url_for('vender_produto', id_area=area.id_area) }}">
-                    <div class="mb-3">
-                        <label for="id_produto_catalogo_venda" class="form-label">ID do Produto (Catálogo):</label>
-                        <input type="text" class="form-control" id="id_produto_catalogo_venda" name="id_produto_catalogo_venda" required readonly>
-                        <small>Preenchido ao clicar em "Vender" na tabela.</small>
-                    </div>
-                     <div class="mb-3">
-                        <label for="nome_produto_venda" class="form-label">Nome do Produto:</label>
-                        <input type="text" class="form-control" id="nome_produto_venda" name="nome_produto_venda_display" disabled>
-                    </div>
-                    <div class="mb-3">
-                        <label for="lote_venda" class="form-label">Lote:</label>
-                        <input type="text" class="form-control" id="lote_venda" name="lote_venda" required readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="quantidade_venda" class="form-label">Quantidade a Vender:</label>
-                        <input type="number" class="form-control" id="quantidade_venda" name="quantidade_venda" min="1" required>
-                        <small id="quantidadeMaximaInfo"></small>
-                    </div>
-                    <div class="mb-3">
-                        <label for="destino_venda" class="form-label">Destino da Venda:</label>
-                        <input type="text" class="form-control" id="destino_venda" name="destino_venda" required>
-                    </div>
-                    <button type="submit" class="btn btn-success">Confirmar Venda</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<div class="modal fade" id="vendaModal" tabindex="-1" aria-labelledby="vendaModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="vendaModalLabel">Registrar Venda Rápida</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- Tabela de Produtos -->
+    <h4>Produtos na Área</h4>
+    {% if produtos %}
+      <div class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead class="thead-dark">
+            <tr>
+              <th>Produto</th>
+              <th>Lote</th>
+              <th>Quantidade</th>
+              <th>Validade</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for produto in produtos %}
+              <tr>
+                <td>{{ produto.nome }}</td>
+                <td>{{ produto.lote }}</td>
+                <td>{{ produto.quantidade }}</td>
+                <td>{{ produto.data_validade }}</td>
+                <td>
+                  {% set dias_para_vencer = (produto.data_validade | to_date - data_hoje).days %}
+                  {% if produto.data_validade < data_hoje %}
+                    <span class="badge badge-danger">VENCIDO</span>
+                  {% elif dias_para_vencer <= 7 %}
+                    <span class="badge badge-warning">Próximo Val.</span>
+                  {% else %}
+                    <span class="badge badge-success">OK</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <button type="button" class="btn btn-primary btn-sm" 
+                          data-toggle="modal" 
+                          data-target="#vendaModal"
+                          data-produto-nome="{{ produto.nome }}"
+                          data-produto-id="{{ produto.id_catalogo_produto }}"
+                          data-lote="{{ produto.lote }}">
+                    <i class="fas fa-shopping-cart"></i> Vender
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <form method="POST" action="{{ url_for('vender_produto', id_area=area.id_area) }}">
+    {% else %}
+      <div class="alert alert-info">
+        Nenhum produto encontrado nesta área.
+      </div>
+    {% endif %}
+
+    <!-- Formulário para Adicionar Produto (apenas para gerentes) -->
+    {% if usuario_logado and usuario_logado.funcao == 'gerente' %}
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5>Adicionar Produto a esta Área ({{ area.nome }})</h5>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('adicionar_produto_na_area', id_area=area.id_area) }}">
+            <div class="form-group">
+              <label for="id_produto_catalogo">Produto do Catálogo</label>
+              <select class="form-control" id="id_produto_catalogo" name="id_produto_catalogo" required>
+                {% for id_produto, prod_data in produtos_catalogo.items() %}
+                  <option value="{{ id_produto }}">{{ prod_data.nome }} (ID: {{ id_produto }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="quantidade">Quantidade</label>
+              <input type="number" class="form-control" id="quantidade" name="quantidade" min="1" required>
+            </div>
+            <div class="form-group">
+              <label for="data_validade">Data de Validade</label>
+              <input type="date" class="form-control" id="data_validade" name="data_validade" required>
+            </div>
+            <div class="form-group">
+              <label for="lote">Lote</label>
+              <input type="text" class="form-control" id="lote" name="lote" required>
+            </div>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-plus"></i> Adicionar Produto
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Modal para Registrar Venda -->
+  <div class="modal fade" id="vendaModal" tabindex="-1" role="dialog" aria-labelledby="vendaModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="vendaModalLabel">Registrar Venda</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <form method="POST" action="{{ url_for('vender_produto_da_area', id_area=area.id_area) }}">
           <div class="modal-body">
-                <p>Produto: <strong id="modalNomeProduto"></strong></p>
-                <p>Lote: <strong id="modalLoteProduto"></strong></p>
-                <input type="hidden" id="modalIdProdutoCatalogoVenda" name="id_produto_catalogo_venda">
-                <input type="hidden" id="modalLoteVenda" name="lote_venda">
-                
-                <div class="mb-3">
-                    <label for="modalQuantidadeVenda" class="form-label">Quantidade a Vender:</label>
-                    <input type="number" class="form-control" id="modalQuantidadeVenda" name="quantidade_venda" min="1" required>
-                    <small id="modalQuantidadeMaximaInfo"></small>
-                </div>
-                <div class="mb-3">
-                    <label for="modalDestinoVenda" class="form-label">Destino da Venda:</label>
-                    <input type="text" class="form-control" id="modalDestinoVenda" name="destino_venda" value="Cliente Balcão" required>
-                </div>
+            <div class="form-group">
+              <label for="produto_nome_venda">Produto</label>
+              <input type="text" class="form-control" id="produto_nome_venda" readonly>
+            </div>
+            <div class="form-group">
+              <label for="lote_venda">Lote</label>
+              <input type="text" class="form-control" id="lote_venda" name="lote_venda" readonly>
+            </div>
+            <input type="hidden" id="id_produto_catalogo_venda" name="id_produto_catalogo_venda">
+            <div class="form-group">
+              <label for="quantidade_venda">Quantidade a Vender</label>
+              <input type="number" class="form-control" id="quantidade_venda" name="quantidade_venda" min="1" required>
+            </div>
+            <div class="form-group">
+              <label for="destino_venda">Destino da Venda</label>
+              <input type="text" class="form-control" id="destino_venda" name="destino_venda" value="Cliente Balcão" required>
+            </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-success">Confirmar Venda</button>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Confirmar Venda</button>
           </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
-</div>
 
-{% endblock %}
-
-{% block scripts_extra %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Passar a data de hoje para o template (para cálculo de validade)
-    // Flask não pode passar diretamente para o JavaScript, então definimos no escopo global do template
-    // e acessamos aqui se necessário, ou fazemos a lógica no backend.
-    // Para a classe da tabela, a data_hoje já foi usada no template Jinja.
-
-    const vendaModal = new bootstrap.Modal(document.getElementById('vendaModal'));
-    const btnsVenderRapido = document.querySelectorAll('.btn-vender-rapido');
-
-    btnsVenderRapido.forEach(btn => {
-        btn.addEventListener('click', function () {
-            const idProd = this.dataset.idprod;
-            const nomeProd = this.dataset.nomeprod;
-            const lote = this.dataset.lote;
-            const qtdMax = parseInt(this.dataset.qtdmax);
-
-            // Preenche o modal
-            document.getElementById('modalNomeProduto').textContent = nomeProd;
-            document.getElementById('modalLoteProduto').textContent = lote;
-            document.getElementById('modalIdProdutoCatalogoVenda').value = idProd;
-            document.getElementById('modalLoteVenda').value = lote;
-            const modalQtdInput = document.getElementById('modalQuantidadeVenda');
-            modalQtdInput.value = 1; // Default
-            modalQtdInput.max = qtdMax;
-            document.getElementById('modalQuantidadeMaximaInfo').textContent = `Máx: ${qtdMax}`;
-
-            // Preenche o formulário fixo também (para consistência ou se o usuário fechar o modal)
-            document.getElementById('id_produto_catalogo_venda').value = idProd;
-            document.getElementById('nome_produto_venda').value = nomeProd;
-            document.getElementById('lote_venda').value = lote;
-            const qtdInputFixo = document.getElementById('quantidade_venda');
-            qtdInputFixo.value = 1;
-            qtdInputFixo.max = qtdMax;
-            document.getElementById('quantidadeMaximaInfo').textContent = `Disponível: ${qtdMax}`;
-
-            // Limpa destino
-            document.getElementById('modalDestinoVenda').value = "Cliente Balcão";
-            document.getElementById('destino_venda').value = "";
-        });
+{% block scripts %}
+  <script>
+    $('#vendaModal').on('show.bs.modal', function (event) {
+      var button = $(event.relatedTarget);
+      var produtoNome = button.data('produto-nome');
+      var produtoId = button.data('produto-id');
+      var lote = button.data('lote');
+      
+      var modal = $(this);
+      modal.find('#produto_nome_venda').val(produtoNome);
+      modal.find('#id_produto_catalogo_venda').val(produtoId);
+      modal.find('#lote_venda').val(lote);
     });
-
-    // Validação simples de quantidade no formulário fixo
-    const qtdInputFixo = document.getElementById('quantidade_venda');
-    if (qtdInputFixo) {
-        qtdInputFixo.addEventListener('input', function() {
-            const max = parseInt(this.max);
-            if (parseInt(this.value) > max) {
-                this.value = max;
-                // Poderia adicionar um feedback visual aqui
-            }
-        });
-    }
-    // Validação para o modal
-    const modalQtdInput = document.getElementById('modalQuantidadeVenda');
-     if (modalQtdInput) {
-        modalQtdInput.addEventListener('input', function() {
-            const max = parseInt(this.max);
-            if (parseInt(this.value) > max) {
-                this.value = max;
-            }
-        });
-    }
-    
-    // Define a data mínima para data de validade como hoje (para adicionar produto)
-    const dataValidadeInput = document.getElementById('data_validade_add');
-    if (dataValidadeInput) {
-        const hoje = new Date().toISOString().split('T')[0];
-        dataValidadeInput.setAttribute('min', hoje);
-    }
-});
-</script>
+  </script>
 {% endblock %}
-
-{# Adicionar no app.py para passar a data de hoje para o template area_detalhes.html #}
-{# Dentro da rota detalhes_area:
-from datetime import date
-...
-    return render_template('area_detalhes.html', ..., today_date=date.today())
-#}
+{% endblock %}

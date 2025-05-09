@@ -1,165 +1,136 @@
-# laticinios_armazem/tests/test_models.py
+# laticinios_armazem/test_models.py
 
 import unittest
-from datetime import datetime, timedelta
-# Certifique-se de que o diretório pai (laticinios_armazem) está no PYTHONPATH
-# Isso pode ser feito adicionando o caminho ou rodando os testes da raiz do projeto com `python -m unittest discover`
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from datetime import datetime, date
+from models import (
+    Usuario, ProdutoLacteo, AreaArmazem, Venda,
+    db_usuarios, db_areas_armazem, db_vendas_registradas, db_produtos_catalogo,
+    get_produto_catalogo_por_id
+)
 
-from models import ProdutoLacteo, AreaArmazem, Venda, Usuario, db_areas_armazem, db_vendas_registradas, get_area_por_id, registrar_venda_no_db, popular_dados_iniciais, get_produto_catalogo_por_id
-
-class TestProdutoLacteo(unittest.TestCase):
-    def test_criar_produto(self):
-        data_validade = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
-        produto = ProdutoLacteo("LEITE001", "Leite Integral", 10, data_validade, "LOTE01")
-        self.assertEqual(produto.nome, "Leite Integral")
-        self.assertEqual(produto.quantidade, 10)
-        self.assertEqual(produto.lote, "LOTE01")
-        self.assertEqual(produto.data_validade, datetime.strptime(data_validade, '%Y-%m-%d').date())
-
-    def test_data_validade_invalida(self):
-        with self.assertRaises(ValueError):
-            ProdutoLacteo("LEITE001", "Leite Integral", 10, "30/12/2025", "LOTE01")
-
-class TestAreaArmazem(unittest.TestCase):
+class TestModels(unittest.TestCase):
     def setUp(self):
-        # Limpa e recria a área para cada teste para evitar interferência
-        db_areas_armazem["TESTE99"] = {"nome": "Área de Teste", "produtos": []}
-        self.area = get_area_por_id("TESTE99")
-        self.produto1 = ProdutoLacteo("QUE003", "Queijo Teste", 20, "2025-12-31", "LTESTE01")
-        self.produto2 = ProdutoLacteo("IOG002", "Iogurte Teste", 15, "2025-11-30", "LTESTE02")
+        # Limpar bancos de dados globais antes de cada teste
+        db_usuarios.clear()
+        db_areas_armazem.clear()
+        db_vendas_registradas.clear()
+        db_produtos_catalogo.clear()
+
+        # Configurar dados de teste
+        db_usuarios.update({
+            'test_user': {'senha': 'test123', 'funcao': 'operador', 'nome': 'Teste Operador'}
+        })
+        db_produtos_catalogo.update({
+            'TEST001': {'nome': 'Leite Teste 1L'}
+        })
+        db_areas_armazem.update({
+            'TEST1': {
+                'nome': 'Área Teste',
+                'tipo_armazenamento': 'refrigerado',
+                'produtos': []
+            }
+        })
 
     def tearDown(self):
-        # Remove a área de teste após os testes
-        if "TESTE99" in db_areas_armazem:
-            del db_areas_armazem["TESTE99"]
+        # Limpar bancos de dados após cada teste
+        db_usuarios.clear()
+        db_areas_armazem.clear()
+        db_vendas_registradas.clear()
+        db_produtos_catalogo.clear()
 
-    def test_adicionar_produto_novo(self):
-        self.area.adicionar_produto(self.produto1)
-        produtos_na_area = self.area.listar_produtos()
-        self.assertEqual(len(produtos_na_area), 1)
-        self.assertEqual(produtos_na_area[0].nome, "Queijo Teste")
-        self.assertEqual(produtos_na_area[0].quantidade, 20)
-
-    def test_adicionar_produto_existente_mesmo_lote(self):
-        self.area.adicionar_produto(self.produto1) # Adiciona 20 unidades
-        produto_mesmo_lote = ProdutoLacteo("QUE003", "Queijo Teste", 5, "2025-12-31", "LTESTE01")
-        self.area.adicionar_produto(produto_mesmo_lote) # Adiciona mais 5
-        
-        produtos_na_area = self.area.listar_produtos()
-        self.assertEqual(len(produtos_na_area), 1) # Deve continuar sendo 1 produto (mesmo lote)
-        self.assertEqual(produtos_na_area[0].quantidade, 25) # Quantidade somada
-
-    def test_adicionar_produto_existente_lote_diferente(self):
-        self.area.adicionar_produto(self.produto1) # LTESTE01
-        produto_lote_diferente = ProdutoLacteo("QUE003", "Queijo Teste", 10, "2025-12-31", "LTESTE03")
-        self.area.adicionar_produto(produto_lote_diferente) # LTESTE03
-
-        produtos_na_area = self.area.listar_produtos()
-        self.assertEqual(len(produtos_na_area), 2) # Dois produtos distintos devido ao lote
-
-
-    def test_remover_produto_sucesso(self):
-        self.area.adicionar_produto(self.produto1) # 20 unidades
-        removido = self.area.remover_produto("QUE003", "LTESTE01", 5)
-        self.assertTrue(removido)
-        self.assertEqual(self.area.listar_produtos()[0].quantidade, 15)
-
-    def test_remover_produto_totalmente(self):
-        self.area.adicionar_produto(self.produto1) # 20 unidades
-        removido = self.area.remover_produto("QUE003", "LTESTE01", 20)
-        self.assertTrue(removido)
-        self.assertEqual(len(self.area.listar_produtos()), 0) # Produto deve ser removido da lista
-
-    def test_remover_produto_quantidade_insuficiente(self):
-        self.area.adicionar_produto(self.produto1) # 20 unidades
-        removido = self.area.remover_produto("QUE003", "LTESTE01", 25)
-        self.assertFalse(removido)
-        self.assertEqual(self.area.listar_produtos()[0].quantidade, 20) # Quantidade não deve mudar
-
-    def test_remover_produto_nao_existente(self):
-        removido = self.area.remover_produto("XYZ789", "LOTEXYZ", 5)
-        self.assertFalse(removido)
-
-class TestVenda(unittest.TestCase):
-    def test_criar_venda(self):
-        venda = Venda("LEITE001", "Leite Integral", "LOTEABC", 5, "Cliente X", "A1")
-        self.assertEqual(venda.quantidade_vendida, 5)
-        self.assertEqual(venda.destino, "Cliente X")
-        self.assertIsNotNone(venda.data_hora)
-
-    def test_registrar_venda_no_db(self):
-        db_vendas_registradas.clear() # Limpa para o teste
-        venda = Venda("IOG002", "Iogurte", "LOTE123", 10, "Supermercado Y", "B2")
-        registrar_venda_no_db(venda)
-        self.assertEqual(len(db_vendas_registradas), 1)
-        self.assertEqual(db_vendas_registradas[0].nome_produto, "Iogurte")
-
-class TestUsuario(unittest.TestCase):
-    def test_verificar_senha_correta(self):
-        usuario = Usuario.verificar_senha("operador1", "senha123")
+    def test_usuario_verificar_senha(self):
+        usuario = Usuario.verificar_senha('test_user', 'test123')
         self.assertIsNotNone(usuario)
-        self.assertEqual(usuario.username, "operador1")
-        self.assertEqual(usuario.funcao, "operador")
-
-    def test_verificar_senha_incorreta(self):
-        usuario = Usuario.verificar_senha("operador1", "senhaerrada")
+        self.assertEqual(usuario.username, 'test_user')
+        self.assertEqual(usuario.funcao, 'operador')
+        self.assertEqual(usuario.nome, 'Teste Operador')
+        usuario = Usuario.verificar_senha('test_user', 'wrong')
+        self.assertIsNone(usuario)
+        usuario = Usuario.verificar_senha('non_existent', 'test123')
         self.assertIsNone(usuario)
 
-    def test_permissao_gerente(self):
-        gerente = Usuario.verificar_senha("gerente1", "senhaforte")
-        self.assertTrue(gerente.tem_permissao("qualquer_coisa"))
+    def test_usuario_tem_permissao(self):
+        usuario = Usuario('test_user', 'operador', 'Teste Operador')
+        self.assertTrue(usuario.tem_permissao('visualizar_armazem'))
+        self.assertFalse(usuario.tem_permissao('gerente'))
 
-    def test_permissao_operador(self):
-        operador = Usuario.verificar_senha("operador1", "senha123")
-        self.assertTrue(operador.tem_permissao("registrar_venda"))
-        self.assertFalse(operador.tem_permissao("ver_relatorios_completos")) # Exemplo de permissão restrita
+    def test_produto_lacteo(self):
+        produto = ProdutoLacteo(
+            id_catalogo_produto='TEST001',
+            nome='Leite Teste 1L',
+            quantidade=100,
+            data_validade_str='2025-06-01',
+            lote='LOTE001'
+        )
+        self.assertEqual(produto.id_catalogo_produto, 'TEST001')
+        self.assertEqual(produto.nome, 'Leite Teste 1L')
+        self.assertEqual(produto.quantidade, 100)
+        self.assertEqual(produto.data_validade, date(2025, 6, 1))
+        self.assertEqual(produto.lote, 'LOTE001')
+        produto_dict = produto.to_dict()
+        self.assertEqual(produto_dict['data_validade'], '2025-06-01')
 
-class TestFuncoesAuxiliares(unittest.TestCase):
-    def setUp(self):
-        # Garante que os dados de teste não interfiram com os dados populados
-        self._original_db_areas = db_areas_armazem.copy()
-        self._original_db_produtos_catalogo = db_produtos_catalogo[:]
-        
-        # Limpa e recria áreas para testes específicos, se necessário
-        db_areas_armazem.clear()
-        db_areas_armazem["TSTA"] = {"nome": "Área Teste A", "produtos": []}
-        db_areas_armazem["TSTB"] = {"nome": "Área Teste B", "produtos": []}
+    def test_area_armazem_adicionar_produto(self):
+        area = AreaArmazem('TEST1', 'Área Teste', 'refrigerado')
+        produto = ProdutoLacteo('TEST001', 'Leite Teste 1L', 100, '2025-06-01', 'LOTE001')
+        area.adicionar_produto(produto)
+        produtos = area.listar_produtos()
+        self.assertEqual(len(produtos), 1)
+        self.assertEqual(produtos[0].quantidade, 100)
+        self.assertEqual(produtos[0].data_validade, date(2025, 6, 1))
+        produto2 = ProdutoLacteo('TEST001', 'Leite Teste 1L', 50, '2025-06-01', 'LOTE001')
+        area.adicionar_produto(produto2)
+        produtos = area.listar_produtos()
+        self.assertEqual(len(produtos), 1)
+        self.assertEqual(produtos[0].quantidade, 150)
+        produto3 = ProdutoLacteo('TEST001', 'Leite Teste 1L', 30, '2025-06-01', 'LOTE002')
+        area.adicionar_produto(produto3)
+        produtos = area.listar_produtos()
+        self.assertEqual(len(produtos), 2)
 
-        db_produtos_catalogo.clear()
-        db_produtos_catalogo.append({"id": "PRODTST", "nome": "Produto de Teste"})
+    def test_area_armazem_remover_produto(self):
+        area = AreaArmazem('TEST1', 'Área Teste', 'refrigerado')
+        produto = ProdutoLacteo('TEST001', 'Leite Teste 1L', 100, '2025-06-01', 'LOTE001')
+        area.adicionar_produto(produto)
+        sucesso = area.remover_produto('TEST001', 'LOTE001', 40)
+        self.assertTrue(sucesso)
+        produtos = area.listar_produtos()
+        self.assertEqual(produtos[0].quantidade, 60)
+        sucesso = area.remover_produto('TEST001', 'LOTE001', 60)
+        self.assertTrue(sucesso)
+        self.assertEqual(len(area.listar_produtos()), 0)
+        sucesso = area.remover_produto('TEST001', 'LOTE001', 10)
+        self.assertFalse(sucesso)
 
-    def tearDown(self):
-        # Restaura os dados originais
-        db_areas_armazem.clear()
-        db_areas_armazem.update(self._original_db_areas)
-        
-        db_produtos_catalogo.clear()
-        db_produtos_catalogo.extend(self._original_db_produtos_catalogo)
-        # db_areas_armazem = self._original_db_areas # Não funciona como esperado para dicionários globais
-        # db_produtos_catalogo = self._original_db_produtos_catalogo
-
-
-    def test_get_area_por_id(self):
-        area = get_area_por_id("TSTA")
-        self.assertIsNotNone(area)
-        self.assertEqual(area.nome, "Área Teste A")
-        area_inexistente = get_area_por_id("NAOEXISTE")
-        self.assertIsNone(area_inexistente)
+    def test_venda_registrar(self):
+        venda = Venda(
+            id_catalogo_produto='TEST001',
+            nome='Leite Teste 1L',
+            lote='LOTE001',
+            data_validade_produto='2025-06-01',
+            quantidade_vendida=50,
+            destino='Cliente Teste',
+            area_origem_id='TEST1',
+            usuario_responsavel='test_user'
+        )
+        Venda.registrar(venda)
+        self.assertEqual(len(db_vendas_registradas), 1)
+        venda_registrada = db_vendas_registradas[0]
+        self.assertEqual(venda_registrada.nome, 'Leite Teste 1L')
+        self.assertEqual(venda_registrada.quantidade_vendida, 50)
 
     def test_get_produto_catalogo_por_id(self):
-        produto_cat = get_produto_catalogo_por_id("PRODTST")
-        self.assertIsNotNone(produto_cat)
-        self.assertEqual(produto_cat["nome"], "Produto de Teste")
-        produto_cat_inexistente = get_produto_catalogo_por_id("NAOEXISTE")
-        self.assertIsNone(produto_cat_inexistente)
+        produto = get_produto_catalogo_por_id('TEST001')
+        self.assertEqual(produto['nome'], 'Leite Teste 1L')
+        produto = get_produto_catalogo_por_id('INVALID')
+        self.assertIsNone(produto)
 
+    def test_db_produtos_catalogo_is_dict(self):
+        # Verificar que db_produtos_catalogo permanece um dicionário
+        self.assertIsInstance(db_produtos_catalogo, dict)
+        db_produtos_catalogo['TEST002'] = {'nome': 'Queijo Teste 500g'}
+        self.assertIsInstance(db_produtos_catalogo, dict)
+        self.assertIn('TEST002', db_produtos_catalogo)
 
 if __name__ == '__main__':
-    # Chama a popular_dados_iniciais antes de rodar os testes para garantir que A1, B2, C3 existam
-    # para testes que possam depender deles implicitamente, embora os testes atuais tentem ser isolados.
-    # No entanto, é melhor que cada classe de teste configure seu próprio ambiente no setUp.
-    # popular_dados_iniciais() # Removido daqui, pois setUp deve cuidar do estado.
     unittest.main()

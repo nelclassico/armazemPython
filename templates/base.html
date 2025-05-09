@@ -11,28 +11,28 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Laticínios Minerva</a>
+            <a class="navbar-brand" href="{{ url_for('index_redirect') }}">Laticínios Minerva</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {% if usuario_logado_username %}
+                    {% if usuario_logado %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('visualizar_armazem') }}">Visualizar Armazém</a>
+                            <a class="nav-link" href="{{ url_for('pagina_inicial_armazem') }}">Visualizar Armazém</a>
                         </li>
-                        {% if usuario_logado_funcao == 'gerente' %}
+                        {% if usuario_logado.funcao == 'gerente' %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('relatorios_monitoramento') }}">Relatórios</a>
+                            <a class="nav-link" href="{{ url_for('pagina_relatorios') }}">Relatórios</a>
                         </li>
                         {% endif %}
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav ms-auto">
-                     {% if usuario_logado_username %}
+                    {% if usuario_logado %}
                         <li class="nav-item">
                             <span class="navbar-text me-3">
-                                Olá, {{ usuario_logado_nome }} ({{ usuario_logado_funcao }})
+                                Olá, {{ usuario_logado.nome }} ({{ usuario_logado.funcao | capitalize }})
                             </span>
                         </li>
                         <li class="nav-item">
@@ -49,7 +49,8 @@
     </nav>
 
     <div class="container">
-        {% include '_alerts.html' %} {% block content %}{% endblock %}
+        {% include '_alerts.html' %}
+        {% block content %}{% endblock %}
     </div>
 
     <footer class="bg-light text-center text-lg-start mt-auto py-3">

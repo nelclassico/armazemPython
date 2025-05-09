@@ -11,9 +11,9 @@
         {% for area in areas %}
         <div class="col">
             <div class="card h-100 text-center area-card">
-                <a href="{{ url_for('detalhes_area', id_area=area.id) }}" class="text-decoration-none text-dark stretched-link">
+                <a href="{{ url_for('detalhes_da_area', id_area=area.id_area) }}" class="text-decoration-none text-dark stretched-link">
                     <div class="card-body">
-                        <h5 class="card-title">Área {{ area.id }}</h5>
+                        <h5 class="card-title">Área {{ area.id_area }}</h5>
                         <p class="card-text">{{ area.nome }}</p>
                         <p><small>(Clique para detalhes)</small></p>
                     </div>
