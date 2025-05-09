@@ -1,66 +1,62 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Armazém de Laticínios{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    {% block head_extra %}{% endblock %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{% endblock %} - Laticínios Armazém</title>
+  <!-- Bootstrap 4 CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Estilos personalizados -->
+  <style>
+    body { padding-top: 70px; }
+    .navbar-brand { font-weight: bold; }
+  </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('index_redirect') }}">Laticínios Minerva</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    {% if usuario_logado %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('pagina_inicial_armazem') }}">Visualizar Armazém</a>
-                        </li>
-                        {% if usuario_logado.funcao == 'gerente' %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('pagina_relatorios') }}">Relatórios</a>
-                        </li>
-                        {% endif %}
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav ms-auto">
-                    {% if usuario_logado %}
-                        <li class="nav-item">
-                            <span class="navbar-text me-3">
-                                Olá, {{ usuario_logado.nome }} ({{ usuario_logado.funcao | capitalize }})
-                            </span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="btn btn-outline-light" href="{{ url_for('logout') }}">Sair</a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container">
-        {% include '_alerts.html' %}
-        {% block content %}{% endblock %}
+  <!-- Barra de Navegação -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <a class="navbar-brand" href="{{ url_for('pagina_inicial_armazem') }}">Laticínios Armazém</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('pagina_inicial_armazem') }}">Armazém</a>
+        </li>
+        {% if usuario_logado and usuario_logado.funcao == 'gerente' %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('pagina_relatorios') }}">Relatórios</a>
+          </li>
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav">
+        {% if usuario_logado %}
+          <li class="nav-item">
+            <span class="nav-link">Bem-vindo, {{ usuario_logado.nome }} ({{ usuario_logado.funcao | capitalize }})</span>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('logout') }}">Sair</a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+          </li>
+        {% endif %}
+      </ul>
     </div>
+  </nav>
 
-    <footer class="bg-light text-center text-lg-start mt-auto py-3">
-        <div class="text-center p-3">
-            © 2025 Sistema de Gerenciamento de Armazém de Laticínios
-        </div>
-    </footer>
+  <!-- Conteúdo Principal -->
+  <div class="container">
+    {% block content %}
+    {% endblock %}
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    {% block scripts_extra %}{% endblock %}
+  <!-- Scripts -->
+  <!-- jQuery e Bootstrap 4 JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>

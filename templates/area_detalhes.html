@@ -1,164 +1,185 @@
 {% extends 'base.html' %}
 
-{% block title %}
-  {{ area.nome }} - Detalhes
-{% endblock %}
+{# Bloco de título da página, exibirá o nome da área e "Detalhes da Área" #}
+{% block title %}{{ area.nome }} - Detalhes da Área{% endblock %}
 
+{# Bloco principal de conteúdo da página #}
 {% block content %}
-  <div class="container mt-4">
-    <!-- Título da Página -->
-    <h2 class="mb-3">{{ area.nome }} ({{ area.tipo_armazenamento | capitalize }})</h2>
-    
-    <!-- Link para Voltar -->
-    <a href="{{ url_for('pagina_inicial_armazem') }}" class="btn btn-secondary mb-3">
-      <i class="fas fa-arrow-left"></i> Voltar para Visão Geral
-    </a>
+<div class="container mt-4">
+    {# Título da página com o nome da área e seu tipo de armazenamento #}
+    <h2>{{ area.nome }} ({{ area.tipo_armazenamento | capitalize }})</h2>
+    {# Link para voltar à página de visão geral do armazém #}
+    <p><a href="{{ url_for('pagina_inicial_armazem') }}" class="btn btn-secondary btn-sm">Voltar para Visão Geral</a></p>
 
-    <!-- Alertas -->
-    {% include '_alerts.html' %}
+    {# Seção para exibir mensagens flash (alertas, sucessos, etc.) #}
+    {% include '_alerts.html' %} {# Inclui o template parcial _alerts.html #}
 
-    <!-- Tabela de Produtos -->
-    <h4>Produtos na Área</h4>
+    <h3>Produtos na Área</h3>
+    {# Verifica se existem produtos para listar nesta área #}
     {% if produtos %}
-      <div class="table-responsive">
         <table class="table table-striped table-hover">
-          <thead class="thead-dark">
-            <tr>
-              <th>Produto</th>
-              <th>Lote</th>
-              <th>Quantidade</th>
-              <th>Validade</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for produto in produtos %}
-              <tr>
-                <td>{{ produto.nome }}</td>
-                <td>{{ produto.lote }}</td>
-                <td>{{ produto.quantidade }}</td>
-                <td>{{ produto.data_validade }}</td>
-                <td>
-                  {% set dias_para_vencer = (produto.data_validade | to_date - data_hoje).days %}
-                  {% if produto.data_validade < data_hoje %}
-                    <span class="badge badge-danger">VENCIDO</span>
-                  {% elif dias_para_vencer <= 7 %}
-                    <span class="badge badge-warning">Próximo Val.</span>
-                  {% else %}
-                    <span class="badge badge-success">OK</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <button type="button" class="btn btn-primary btn-sm" 
-                          data-toggle="modal" 
-                          data-target="#vendaModal"
-                          data-produto-nome="{{ produto.nome }}"
-                          data-produto-id="{{ produto.id_catalogo_produto }}"
-                          data-lote="{{ produto.lote }}">
-                    <i class="fas fa-shopping-cart"></i> Vender
-                  </button>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <div class="alert alert-info">
-        Nenhum produto encontrado nesta área.
-      </div>
-    {% endif %}
-
-    <!-- Formulário para Adicionar Produto (apenas para gerentes) -->
-    {% if usuario_logado and usuario_logado.funcao == 'gerente' %}
-      <div class="card mt-4">
-        <div class="card-header">
-          <h5>Adicionar Produto a esta Área ({{ area.nome }})</h5>
-        </div>
-        <div class="card-body">
-          <form method="POST" action="{{ url_for('adicionar_produto_na_area', id_area=area.id_area) }}">
-            <div class="form-group">
-              <label for="id_produto_catalogo">Produto do Catálogo</label>
-              <select class="form-control" id="id_produto_catalogo" name="id_produto_catalogo" required>
-                {% for id_produto, prod_data in produtos_catalogo.items() %}
-                  <option value="{{ id_produto }}">{{ prod_data.nome }} (ID: {{ id_produto }})</option>
+            <thead class="thead-light">
+                <tr>
+                    <th>Nome do Produto</th>
+                    <th>Lote</th>
+                    <th>Quantidade</th>
+                    <th>Data de Validade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# Itera sobre cada produto na lista de produtos da área #}
+                {% for produto in produtos %}
+                    <tr>
+                        <td>{{ produto.nome }}</td>
+                        <td>{{ produto.lote }}</td>
+                        <td>{{ produto.quantidade }}</td>
+                        <td>
+                            {# Formata a data de validade para DD/MM/AAAA #}
+                            {# O filtro 'to_date' foi definido em app.py para converter string para objeto date se necessário #}
+                            {{ (produto.data_validade | to_date).strftime('%d/%m/%Y') if produto.data_validade else 'Não informada' }}
+                        </td>
+                        <td>
+                            {# Calcula os dias para vencer e exibe um status (Vencido, Próximo Venc., OK) #}
+                            {% if produto.data_validade %}
+                                {# A variável 'data_hoje' é passada pelo app.py #}
+                                {% set dias_para_vencer = (produto.data_validade | to_date - data_hoje).days %}
+                                {% if dias_para_vencer < 0 %}
+                                    <span class="badge badge-danger">Vencido</span>
+                                {% elif dias_para_vencer <= 7 %}
+                                    <span class="badge badge-warning">Próximo Venc. ({{ dias_para_vencer }} dia{{ 's' if dias_para_vencer != 1 }})</span>
+                                {% else %}
+                                    <span class="badge badge-success">OK</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge badge-secondary">Sem validade</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {# Botão para vender o produto, visível apenas para operadores e gerentes #}
+                            {# 'usuario_logado' é injetado globalmente pelo context_processor em app.py #}
+                            {% if usuario_logado and usuario_logado.funcao in ['operador', 'gerente'] %}
+                                <button class="btn btn-primary btn-sm" 
+                                        data-toggle="modal" 
+                                        data-target="#vendaModal"
+                                        data-produto-id="{{ produto.id_catalogo_produto }}"
+                                        data-produto-nome="{{ produto.nome }}"
+                                        data-lote="{{ produto.lote }}"
+                                        data-quantidade-disponivel="{{ produto.quantidade }}" {# Passa a quantidade disponível para o modal #}
+                                        onclick="preencherModalVenda(this)">
+                                    Vender
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="quantidade">Quantidade</label>
-              <input type="number" class="form-control" id="quantidade" name="quantidade" min="1" required>
-            </div>
-            <div class="form-group">
-              <label for="data_validade">Data de Validade</label>
-              <input type="date" class="form-control" id="data_validade" name="data_validade" required>
-            </div>
-            <div class="form-group">
-              <label for="lote">Lote</label>
-              <input type="text" class="form-control" id="lote" name="lote" required>
-            </div>
-            <button type="submit" class="btn btn-success">
-              <i class="fas fa-plus"></i> Adicionar Produto
-            </button>
-          </form>
-        </div>
-      </div>
+            </tbody>
+        </table>
+    {% else %}
+        {# Mensagem exibida se não houver produtos na área #}
+        <p class="text-muted">Nenhum produto encontrado nesta área.</p>
     {% endif %}
-  </div>
 
-  <!-- Modal para Registrar Venda -->
-  <div class="modal fade" id="vendaModal" tabindex="-1" role="dialog" aria-labelledby="vendaModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="vendaModalLabel">Registrar Venda</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+    {# Formulário para adicionar produto, visível apenas para gerentes #}
+    {% if usuario_logado and usuario_logado.funcao == 'gerente' %}
+        <h3 class="mt-5">Adicionar Produto à Área</h3>
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('adicionar_produto_na_area', id_area=area.id_area) }}">
+                    <div class="form-group">
+                        <label for="id_produto_catalogo">Produto do Catálogo</label>
+                        {# 'produtos_catalogo' é passado pelo app.py #}
+                        <select class="form-control" id="id_produto_catalogo" name="id_produto_catalogo" required>
+                            <option value="" disabled selected>Selecione um produto</option>
+                            {% for id_prod, prod_data in produtos_catalogo.items() %}
+                                <option value="{{ id_prod }}">{{ prod_data.nome }} (ID: {{ id_prod }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="quantidade">Quantidade</label>
+                            <input type="number" class="form-control" id="quantidade" name="quantidade" min="1" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="data_validade">Data de Validade</label>
+                            <input type="date" class="form-control" id="data_validade" name="data_validade" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="lote">Lote</label>
+                            <input type="text" class="form-control" id="lote" name="lote" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Adicionar Produto</button>
+                </form>
+            </div>
         </div>
-        <form method="POST" action="{{ url_for('vender_produto_da_area', id_area=area.id_area) }}">
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="produto_nome_venda">Produto</label>
-              <input type="text" class="form-control" id="produto_nome_venda" readonly>
-            </div>
-            <div class="form-group">
-              <label for="lote_venda">Lote</label>
-              <input type="text" class="form-control" id="lote_venda" name="lote_venda" readonly>
-            </div>
-            <input type="hidden" id="id_produto_catalogo_venda" name="id_produto_catalogo_venda">
-            <div class="form-group">
-              <label for="quantidade_venda">Quantidade a Vender</label>
-              <input type="number" class="form-control" id="quantidade_venda" name="quantidade_venda" min="1" required>
-            </div>
-            <div class="form-group">
-              <label for="destino_venda">Destino da Venda</label>
-              <input type="text" class="form-control" id="destino_venda" name="destino_venda" value="Cliente Balcão" required>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Confirmar Venda</button>
-          </div>
-        </form>
+    {% endif %}
+</div>
+
+{# Modal para registrar a venda de um produto #}
+<div class="modal fade" id="vendaModal" tabindex="-1" role="dialog" aria-labelledby="vendaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="vendaModalLabel">Registrar Venda</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
       </div>
+      {# O action do formulário do modal aponta para a rota de venda, passando o id_area #}
+      <form method="POST" action="{{ url_for('vender_produto_da_area', id_area=area.id_area) }}" id="formVendaModal">
+        <div class="modal-body">
+          <p>Produto: <strong id="modal_produto_nome_display"></strong></p>
+          <p>Lote: <strong id="modal_lote_display"></strong></p>
+          <p>Disponível: <strong id="modal_quantidade_disponivel_display"></strong></p>
+          
+          {# Campos ocultos para enviar os dados do produto para o backend #}
+          <input type="hidden" id="id_produto_catalogo_venda" name="id_produto_catalogo_venda">
+          <input type="hidden" id="lote_venda" name="lote_venda">
+          
+          <div class="form-group">
+            <label for="quantidade_venda">Quantidade a Vender</label>
+            <input type="number" class="form-control" id="quantidade_venda" name="quantidade_venda" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="destino_venda">Destino da Venda</label>
+            <input type="text" class="form-control" id="destino_venda" name="destino_venda" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar Venda</button>
+        </div>
+      </form>
     </div>
   </div>
+</div>
 
-{% block scripts %}
-  <script>
-    $('#vendaModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget);
-      var produtoNome = button.data('produto-nome');
-      var produtoId = button.data('produto-id');
-      var lote = button.data('lote');
-      
-      var modal = $(this);
-      modal.find('#produto_nome_venda').val(produtoNome);
-      modal.find('#id_produto_catalogo_venda').val(produtoId);
-      modal.find('#lote_venda').val(lote);
-    });
-  </script>
+{# Script JavaScript para preencher o modal de venda com os dados do produto selecionado #}
+<script>
+function preencherModalVenda(button) {
+    // Obtém os dados do produto dos atributos 'data-*' do botão que foi clicado
+    const produtoId = button.getAttribute('data-produto-id');
+    const produtoNome = button.getAttribute('data-produto-nome');
+    const produtoLote = button.getAttribute('data-lote');
+    const quantidadeDisponivel = button.getAttribute('data-quantidade-disponivel');
+
+    // Preenche os campos visíveis e ocultos do modal com os dados do produto
+    document.getElementById('modal_produto_nome_display').textContent = produtoNome;
+    document.getElementById('modal_lote_display').textContent = produtoLote;
+    document.getElementById('modal_quantidade_disponivel_display').textContent = quantidadeDisponivel;
+
+    document.getElementById('id_produto_catalogo_venda').value = produtoId;
+    document.getElementById('lote_venda').value = produtoLote;
+    
+    // Define o máximo do input de quantidade para a quantidade disponível
+    const quantidadeVendaInput = document.getElementById('quantidade_venda');
+    quantidadeVendaInput.max = quantidadeDisponivel;
+    quantidadeVendaInput.value = ''; // Limpa o campo de quantidade
+    document.getElementById('destino_venda').value = ''; // Limpa o campo de destino
+}
+</script>
 {% endblock %}
-{% endblock %}
+
