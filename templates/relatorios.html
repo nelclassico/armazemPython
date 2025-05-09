@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios e Monitoramento{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Relatórios e Monitoramento</h1>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>Estoque Atual Agregado</h3>
+            </div>
+            <div class="card-body">
+                {% if estoque_total %}
+                    <ul class="list-group">
+                        {% for nome_produto, quantidade in estoque_total.items() %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ nome_produto }}
+                            <span class="badge bg-primary rounded-pill">{{ quantidade }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>Nenhum item em estoque no momento.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                 <h3>Alertas de Validade (Próximos {{ dias_alerta }} dias ou Vencidos)</h3>
+            </div>
+            <div class="card-body">
+                {% if produtos_alerta_validade %}
+                    <ul class="list-group">
+                        {% for item_alerta in produtos_alerta_validade %}
+                            <li class="list-group-item {{ 'list-group-item-danger' if item_alerta.vencido else 'list-group-item-warning' }}">
+                                <strong>{{ item_alerta.produto.nome }}</strong> (Lote: {{ item_alerta.produto.lote }})
+                                <br>
+                                Quantidade: {{ item_alerta.produto.quantidade }} | Validade: {{ item_alerta.produto.data_validade }}
+                                <br>
+                                <small>Local: {{ item_alerta.nome_area }} ({{ item_alerta.area_id }})</small>
+                                {% if item_alerta.vencido %}
+                                    <span class="badge bg-danger float-end">VENCIDO</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark float-end">ATENÇÃO</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>Nenhum produto próximo da data de validade ou vencido.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>Histórico de Vendas</h3>
+            </div>
+            <div class="card-body">
+                {% if vendas_registradas %}
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Produto</th>
+                                <th>Lote</th>
+                                <th>Qtd.</th>
+                                <th>Destino</th>
+                                <th>Área Origem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for venda in vendas_registradas|sort(attribute='data_hora', reverse=True) %}
+                            <tr>
+                                <td>{{ venda.data_hora }}</td>
+                                <td>{{ venda.nome_produto }} ({{venda.id_produto_catalogo}})</td>
+                                <td>{{ venda.lote }}</td>
+                                <td>{{ venda.quantidade_vendida }}</td>
+                                <td>{{ venda.destino }}</td>
+                                <td>{{ venda.area_origem_id }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>Nenhuma venda registrada ainda.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

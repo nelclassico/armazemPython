@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Visão Geral do Armazém{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Armazém de Laticínios</h1>
+<p>Clique em uma área para ver os produtos armazenados e realizar operações.</p>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% if areas %}
+        {% for area in areas %}
+        <div class="col">
+            <div class="card h-100 text-center area-card">
+                <a href="{{ url_for('detalhes_area', id_area=area.id) }}" class="text-decoration-none text-dark stretched-link">
+                    <div class="card-body">
+                        <h5 class="card-title">Área {{ area.id }}</h5>
+                        <p class="card-text">{{ area.nome }}</p>
+                        <p><small>(Clique para detalhes)</small></p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Nenhuma área de armazém cadastrada.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+    flex: 1;
+}
+
+.area-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.area-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* Responsividade básica para as áreas do armazém */
+@media (max-width: 768px) {
+    .navbar-nav .nav-item .navbar-text {
+        display: none; /* Esconder nome do usuário em telas pequenas para economizar espaço */
+    }
+}
+
+.table-warning {
+    --bs-table-bg: #fff3cd; /* Cor de fundo para itens com aviso */
+    --bs-table-striped-bg: #f0e6c2;
+}
+.table-danger {
+    --bs-table-bg: #f8d7da; /* Cor de fundo para itens com perigo */
+    --bs-table-striped-bg: #e6c8ca;
+}
+
+/* Ajustes para o formulário de login */
+.login-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
