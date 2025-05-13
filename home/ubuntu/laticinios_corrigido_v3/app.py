@@ -6,7 +6,7 @@ import functools
 import logging
 from models import (
     Usuario, ProdutoLacteo, AreaArmazem, Venda, ProdutoCatalogo,
-    popular_dados_iniciais, init_db 
+    popular_dados_iniciais, init_db # Removido get_produto_catalogo_por_id e get_db_connection pois não são usados diretamente aqui
 )
 
 # Inicializa a aplicação Flask
@@ -46,22 +46,21 @@ def login_necessario(permissao_requerida: str = None):
     def decorator(view_func):
         @functools.wraps(view_func)
         def wrapper(*args, **kwargs):
-            if 'username' not in session or 'password' not in session: # Verifica também a senha na sessão
+            if 'username' not in session:
                 flash("Por favor, faça login para acessar esta página.", "warning")
                 return redirect(url_for('login', next=request.url))
             
+            # Re-valida a senha da sessão para maior segurança, embora não seja estritamente necessário em todas as requisições
+            # Em um sistema de produção, um token de sessão mais robusto seria usado.
             usuario_logado = Usuario.verificar_senha(session['username'], session.get('password'))
             if not usuario_logado:
                 session.clear()
-                flash("Sua sessão é inválida ou expirou. Por favor, faça login novamente.", "danger")
+                flash("Sua sessão é inválida. Por favor, faça login novamente.", "danger")
                 return redirect(url_for('login'))
-
-            # Armazena o objeto usuário na sessão para uso pelo context_processor
-            # session['usuario_obj'] = usuario_logado # Não é ideal armazenar objetos complexos diretamente na sessão
-                                                # O context_processor deve buscar o objeto a cada request se necessário.
 
             if permissao_requerida and not usuario_logado.tem_permissao(permissao_requerida):
                 flash("Você não tem permissão para realizar esta ação ou acessar esta página.", "danger")
+                # Redireciona para a página anterior ou para a página inicial do armazém
                 return redirect(request.referrer or url_for('pagina_inicial_armazem')) 
             
             return view_func(*args, **kwargs)
@@ -78,9 +77,10 @@ def login():
 
         if usuario:
             session['username'] = usuario.username
-            session['user_funcao'] = usuario.funcao # Mantido para referência rápida, mas o objeto é rei
-            session['user_nome'] = usuario.nome   # Mantido para referência rápida
-            session['password'] = senha # ATENÇÃO: Prática insegura para produção.
+            session['user_funcao'] = usuario.funcao
+            session['user_nome'] = usuario.nome
+            session['password'] = senha # Armazenar a senha na sessão é uma prática insegura para produção.
+                                        # Considere usar Flask-Login para gerenciamento de sessão mais seguro.
             app.logger.debug(f"Sessão criada para usuário: {usuario.username}")
             flash(f"Login bem-sucedido! Bem-vindo(a), {usuario.nome}.", "success")
             
@@ -89,6 +89,7 @@ def login():
         else:
             flash("Usuário ou senha inválidos. Tente novamente.", "danger")
     
+    # Se o usuário já estiver logado, redireciona para a página inicial
     if 'username' in session:
         return redirect(url_for('pagina_inicial_armazem'))
         
@@ -124,15 +125,19 @@ def detalhes_da_area(id_area):
         flash(f"Área com ID '{id_area}' não encontrada.", "danger")
         return redirect(url_for('pagina_inicial_armazem'))
     
+    # Lista os produtos na área, ordenados por data de validade
     produtos_na_area = sorted(area.listar_produtos(), key=lambda p: p.data_validade)
+    
+    # Prepara a lista de produtos do catálogo para o dropdown de adicionar produto
     produtos_catalogo_list = ProdutoCatalogo.listar_todos()
+    # Cria um dicionário para facilitar o acesso no template
     produtos_catalogo_dropdown = {pc.id_produto: {'nome': pc.nome} for pc in produtos_catalogo_list}
 
     return render_template('area_detalhes.html', 
                          area=area, 
                          produtos=produtos_na_area,
                          produtos_catalogo=produtos_catalogo_dropdown,
-                         data_hoje=date.today()
+                         data_hoje=date.today() # Passa a data de hoje para o template (usado para status de validade)
                         )
 
 @app.route('/armazem/<id_area>/adicionar_produto', methods=['POST'])
@@ -166,7 +171,7 @@ def adicionar_produto_na_area(id_area):
 
         novo_produto = ProdutoLacteo(
             id_catalogo_produto=id_catalogo_produto,
-            nome=produto_do_catalogo_obj.nome, 
+            nome=produto_do_catalogo_obj.nome, # Nome vem do catálogo
             quantidade=quantidade,
             data_validade_str=data_validade_str,
             lote=lote.strip().upper()
@@ -174,9 +179,9 @@ def adicionar_produto_na_area(id_area):
         area.adicionar_produto(novo_produto)
         flash(f"Produto '{novo_produto.nome}' (Lote: {novo_produto.lote}) adicionado/atualizado com sucesso na área {area.nome}!", "success")
     
-    except ValueError as e: 
+    except ValueError as e: # Captura erros de conversão (ex: int, data)
         flash(f"Erro ao adicionar produto: {e}", "danger")
-    except Exception as e: 
+    except Exception as e: # Captura outros erros inesperados
         app.logger.error(f"Erro inesperado ao adicionar produto na área {id_area}: {e}", exc_info=True)
         flash("Ocorreu um erro inesperado ao processar sua solicitação.", "danger")
         
@@ -192,6 +197,7 @@ def vender_produto_da_area(id_area):
         return redirect(url_for('pagina_inicial_armazem'))
 
     try:
+        # O ID do produto na área agora é 'id_instancia_venda' (referente ao 'id' da tabela produtos_areas)
         id_instancia_venda_str = request.form.get('id_instancia_venda') 
         quantidade_venda_str = request.form.get('quantidade_venda')
         destino_venda = request.form.get('destino_venda')
@@ -207,12 +213,15 @@ def vender_produto_da_area(id_area):
             flash("A quantidade para venda deve ser positiva.", "warning")
             return redirect(url_for('detalhes_da_area', id_area=id_area))
 
+        # Busca a instância do produto pelo seu ID único na tabela produtos_areas
         produto_para_venda = ProdutoLacteo.buscar_instancia_por_id(id_instancia_venda)
 
         if not produto_para_venda:
             flash(f"Produto com ID de instância '{id_instancia_venda}' não encontrado.", "danger")
             return redirect(url_for('detalhes_da_area', id_area=id_area))
         
+        # Verifica se o produto pertence à área correta (segurança adicional)
+        # Esta verificação pode ser mais robusta se o objeto AreaArmazem tiver um método para buscar produto por id_instancia
         produto_na_area_correta = any(p.id == id_instancia_venda for p in area.listar_produtos())
         if not produto_na_area_correta:
             flash(f"Produto com ID de instância '{id_instancia_venda}' não pertence à área '{area.nome}'.", "danger")
@@ -222,6 +231,7 @@ def vender_produto_da_area(id_area):
             flash(f"Quantidade insuficiente em estoque para '{produto_para_venda.nome}' (Lote: {produto_para_venda.lote}). Disponível: {produto_para_venda.quantidade}", "warning")
             return redirect(url_for('detalhes_da_area', id_area=id_area))
 
+        # O método remover_produto em AreaArmazem agora usa o id da instância (chave primária)
         sucesso_remocao = area.remover_produto(produto_para_venda.id, quantidade_venda)
 
         if sucesso_remocao:
@@ -240,7 +250,7 @@ def vender_produto_da_area(id_area):
         else:
             flash(f"Falha ao tentar vender {quantidade_venda} unidade(s) de '{produto_para_venda.nome}'. Verifique o estoque ou ID do produto.", "danger")
     
-    except ValueError: 
+    except ValueError: # Erro na conversão de quantidade ou ID
         flash("Quantidade para venda inválida ou ID do produto inválido. Devem ser números.", "danger")
     except Exception as e:
         app.logger.error(f"Erro inesperado ao vender produto da área {id_area}: {e}", exc_info=True)
@@ -250,6 +260,7 @@ def vender_produto_da_area(id_area):
 
 # --- Rotas de Gerenciamento (CRUD) ---
 
+# CRUD para Áreas de Armazenamento
 @app.route('/admin/areas')
 @login_necessario(permissao_requerida='gerenciar_areas')
 def listar_areas_admin():
@@ -315,6 +326,7 @@ def excluir_area(id_area):
             flash(mensagem, "danger")
     return redirect(url_for('listar_areas_admin'))
 
+# CRUD para Produtos do Catálogo
 @app.route('/admin/catalogo')
 @login_necessario(permissao_requerida='gerenciar_catalogo_produtos')
 def listar_produtos_catalogo_admin():
@@ -377,6 +389,8 @@ def excluir_produto_catalogo(id_produto_catalogo):
             flash(mensagem, "danger")
     return redirect(url_for('listar_produtos_catalogo_admin'))
 
+# CRUD para Instâncias de Produtos em Áreas (produtos_areas)
+# A chave primária da instância do produto é 'id_instancia_produto' na URL e na lógica interna
 @app.route('/admin/area/<id_area>/produto/<int:id_instancia_produto>/editar', methods=['GET', 'POST'])
 @login_necessario(permissao_requerida='gerenciar_produtos_em_areas')
 def editar_produto_em_area(id_area, id_instancia_produto):
@@ -386,11 +400,14 @@ def editar_produto_em_area(id_area, id_instancia_produto):
         flash(f"Área com ID '{id_area}' não encontrada.", "danger")
         return redirect(url_for('pagina_inicial_armazem'))
 
+    # Busca a instância do produto pelo seu ID (chave primária da tabela produtos_areas)
     produto_instancia = ProdutoLacteo.buscar_instancia_por_id(id_instancia_produto)
     if not produto_instancia:
         flash(f"Instância de produto com ID '{id_instancia_produto}' não encontrada.", "danger")
         return redirect(url_for('detalhes_da_area', id_area=id_area))
     
+    # Validação adicional: verifica se o produto realmente pertence à área especificada na URL
+    # Isso é uma camada extra de segurança, embora buscar_instancia_por_id já seja específico.
     produto_encontrado_na_area = any(p.id == id_instancia_produto for p in area.listar_produtos())
     if not produto_encontrado_na_area:
         flash(f"Produto com ID de instância '{id_instancia_produto}' não pertence à área '{area.nome}'.", "danger")
@@ -406,14 +423,15 @@ def editar_produto_em_area(id_area, id_instancia_produto):
         else:
             try:
                 nova_quantidade = int(nova_quantidade_str)
-                if nova_quantidade < 0: 
+                if nova_quantidade < 0: # Permitir 0 para caso de remoção total via edição, mas não negativo
                     flash("A quantidade não pode ser negativa.", "warning")
+                # O método atualizar_instancia já lida com a conversão da data
                 elif produto_instancia.atualizar_instancia(nova_quantidade, nova_data_validade_str, novo_lote.strip().upper()):
                     flash(f"Produto '{produto_instancia.nome}' (Lote: {produto_instancia.lote}) atualizado com sucesso na área {area.nome}!", "success")
                     return redirect(url_for('detalhes_da_area', id_area=id_area))
                 else:
                     flash("Erro ao atualizar o produto. Verifique os dados (ex: formato da data AAAA-MM-DD).", "danger")
-            except ValueError: 
+            except ValueError: # Erro na conversão da quantidade
                 flash("Quantidade inválida. Deve ser um número.", "danger")
             except Exception as e:
                 app.logger.error(f"Erro ao editar produto {id_instancia_produto} na área {id_area}: {e}", exc_info=True)
@@ -437,6 +455,7 @@ def excluir_produto_de_area(id_area, id_instancia_produto):
     if not produto_instancia:
         flash(f"Instância de produto com ID '{id_instancia_produto}' não encontrada.", "danger")
     else:
+        # Validação extra para garantir que o produto pertence à área (opcional, mas bom)
         produto_na_area_correta = any(p.id == id_instancia_produto for p in area.listar_produtos())
         if not produto_na_area_correta:
             flash(f"Produto com ID de instância '{id_instancia_produto}' não pertence à área '{area.nome}'.", "danger")
@@ -447,10 +466,13 @@ def excluir_produto_de_area(id_area, id_instancia_produto):
             
     return redirect(url_for('detalhes_da_area', id_area=id_area))
 
+# FIM CRUD para Instâncias de Produtos em Áreas
+
 @app.route('/relatorios')
 @login_necessario(permissao_requerida='gerente')
 def pagina_relatorios():
     """Rota para a página de relatórios."""
+    # Calcula o estoque total por produto (do catálogo)
     estoque_total = {}
     for area_obj in AreaArmazem.listar_todas():
         for prod_instancia in area_obj.listar_produtos():
@@ -459,16 +481,19 @@ def pagina_relatorios():
                 estoque_total[chave_produto] = {"nome": prod_instancia.nome, "quantidade_total": 0}
             estoque_total[chave_produto]["quantidade_total"] += prod_instancia.quantidade
     
+    # Lista todas as vendas registradas, ordenadas pela mais recente
     vendas = sorted([v.to_dict() for v in Venda.listar_todas()], key=lambda x: datetime.strptime(x['data_hora'], '%d/%m/%Y %H:%M:%S'), reverse=True)
 
+    # Identifica produtos próximos do vencimento ou vencidos
     dias_alerta_antecedencia = 7 
     data_hoje_obj = date.today()
     limite_alerta = data_hoje_obj + timedelta(days=dias_alerta_antecedencia)
     produtos_alerta_validade = []
 
     for area_obj in AreaArmazem.listar_todas():
-        for produto_obj in area_obj.listar_produtos(): 
+        for produto_obj in area_obj.listar_produtos(): # produto_obj é uma instância de ProdutoLacteo
             status_validade = ""
+            # A data de validade já é um objeto date em ProdutoLacteo
             dias_para_vencer_calc = (produto_obj.data_validade - data_hoje_obj).days
 
             if produto_obj.data_validade < data_hoje_obj:
@@ -480,11 +505,12 @@ def pagina_relatorios():
                 produtos_alerta_validade.append({
                     "area_id": area_obj.id_area,
                     "nome_area": area_obj.nome,
-                    "produto": produto_obj.to_dict(), 
+                    "produto": produto_obj.to_dict(), # Converte a instância para dicionário
                     "status_validade": status_validade,
                     "dias_para_vencer": dias_para_vencer_calc
                 })
     
+    # Ordena os alertas: VENCIDO primeiro, depois por dias para vencer
     produtos_alerta_validade.sort(key=lambda x: (x["status_validade"] != "VENCIDO", x["dias_para_vencer"]))
 
     return render_template('relatorios.html', 
@@ -493,6 +519,7 @@ def pagina_relatorios():
                          produtos_alerta_validade=produtos_alerta_validade,
                          dias_alerta=dias_alerta_antecedencia)
 
+# --- API Endpoints (Exemplos) ---
 @app.route('/api/armazem/<id_area>/produtos', methods=['GET'])
 @login_necessario(permissao_requerida='visualizar_armazem')
 def api_produtos_por_area(id_area):
@@ -500,7 +527,7 @@ def api_produtos_por_area(id_area):
     area = AreaArmazem.buscar_por_id(id_area)
     if not area:
         return jsonify({"erro": "Área não encontrada"}), 404
-    return jsonify(area.to_dict())
+    return jsonify(area.to_dict()) # to_dict() em AreaArmazem já inclui os produtos
 
 @app.route('/api/estoque_geral', methods=['GET'])
 @login_necessario(permissao_requerida='gerente')
@@ -512,13 +539,20 @@ def api_estoque_geral():
 # --- Context Processor ---
 @app.context_processor
 def injetar_dados_globais():
-    """Disponibiliza o objeto Usuario logado para todos os templates."""
-    usuario_obj = None
-    if 'username' in session and 'password' in session: # Verifica se há um usuário logado
-        # Busca o objeto Usuario completo para disponibilizar seus métodos (como tem_permissao)
-        usuario_obj = Usuario.verificar_senha(session['username'], session['password'])
-    return dict(usuario_logado=usuario_obj, data_hoje_global=date.today())
+    """Disponibiliza variáveis globais para todos os templates."""
+    user_info = None
+    if 'username' in session:
+        user_info = {
+            'username': session.get('username'),
+            'funcao': session.get('user_funcao'),
+            'nome': session.get('user_nome')
+            # Não é seguro injetar a senha aqui, mesmo que esteja na sessão.
+        }
+    return dict(usuario_logado=user_info, data_hoje_global=date.today())
 
+# Ponto de entrada para executar a aplicação Flask
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Executa a aplicação em modo de depuração, acessível na rede local.
+    # Em produção, use um servidor WSGI como Gunicorn ou uWSGI.
+    app.run(debug=True, host='0.0.0.0', port=5001) # Porta padrão 5001
 

@@ -50,7 +50,7 @@
                         <td>
                             {# Calcula os dias para vencer e exibe um status (Vencido, Próximo Venc., OK) #}
                             {% if produto.data_validade %}
-                                {% set dias_para_vencer = (produto.data_validade - data_hoje).days %}
+                                {% set dias_para_vencer = (produto.data_validade | to_date - data_hoje).days %}
                                 {% if dias_para_vencer < 0 %}
                                     <span class="badge badge-danger">Vencido</span>
                                 {% elif dias_para_vencer <= 7 %}

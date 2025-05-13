@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Administrar Catálogo de Produtos - Laticínios Armazém{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Gerenciar Catálogo de Produtos</h2>
+        <a href="{{ url_for('adicionar_produto_catalogo') }}" class="btn btn-success">Adicionar Novo Produto ao Catálogo</a>
+    </div>
+
+    {% include '_alerts.html' %}
+
+    {% if produtos %}
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID do Produto</th>
+                <th>Nome do Produto</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in produtos %}
+            <tr>
+                <td>{{ produto.id_produto }}</td>
+                <td>{{ produto.nome }}</td>
+                <td>
+                    <a href="{{ url_for('editar_produto_catalogo', id_produto_catalogo=produto.id_produto) }}" class="btn btn-sm btn-primary">Editar</a>
+                    <form action="{{ url_for('excluir_produto_catalogo', id_produto_catalogo=produto.id_produto) }}" method="POST" style="display: inline-block;" onsubmit="return confirm('Tem certeza que deseja excluir o produto {{ produto.nome }} ({{ produto.id_produto }}) do catálogo? Esta ação não pode ser desfeita e pode afetar produtos já cadastrados em áreas se não houver validação no backend.');">
+                        <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        Nenhum produto encontrado no catálogo.
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('pagina_inicial_armazem') }}" class="btn btn-secondary mt-3">Voltar ao Armazém</a>
+</div>
+{% endblock %}
+

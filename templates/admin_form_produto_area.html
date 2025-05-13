@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ acao }} Produto na Área - Laticínios Armazém{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ acao }} Produto na Área "{{ area.nome }}"</h2>
+
+    {% include '_alerts.html' %}
+
+    <form method="POST" action="">
+        <div class="mb-3">
+            <label for="nome_produto" class="form-label">Nome do Produto</label>
+            <input type="text" class="form-control" id="nome_produto" name="nome_produto" value="{{ produto.nome }}" readonly>
+        </div>
+        <div class="mb-3">
+            <label for="id_catalogo_produto" class="form-label">ID do Catálogo</label>
+            <input type="text" class="form-control" id="id_catalogo_produto" name="id_catalogo_produto" value="{{ produto.id_catalogo_produto }}" readonly>
+        </div>
+        <div class="mb-3">
+            <label for="quantidade" class="form-label">Quantidade</label>
+            <input type="number" class="form-control" id="quantidade" name="quantidade" value="{{ produto.quantidade }}" required min="0">
+            <small class="form-text text-muted">Se definir como 0, o produto será removido da área após salvar (se a lógica de atualização permitir).</small>
+        </div>
+        <div class="mb-3">
+            <label for="data_validade" class="form-label">Data de Validade</label>
+            <input type="date" class="form-control" id="data_validade" name="data_validade" value="{{ produto.data_validade.strftime('%Y-%m-%d') if produto.data_validade else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="lote" class="form-label">Lote</label>
+            <input type="text" class="form-control" id="lote" name="lote" value="{{ produto.lote }}" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">{{ acao }} Produto na Área</button>
+        <a href="{{ url_for('detalhes_da_area', id_area=area.id_area) }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+

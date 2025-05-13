@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ acao }} Área - Laticínios Armazém{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ acao }} Área de Armazenamento</h2>
+
+    {% include '_alerts.html' %}
+
+    <form method="POST" action="">
+        <div class="mb-3">
+            <label for="id_area" class="form-label">ID da Área</label>
+            <input type="text" class="form-control" id="id_area" name="id_area" value="{{ area.id_area if area else '' }}" {% if acao == 'Editar' %}readonly{% endif %} required>
+            {% if acao == 'Editar' %}<small class="form-text text-muted">O ID da área não pode ser alterado após a criação.</small>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label for="nome" class="form-label">Nome da Área</label>
+            <input type="text" class="form-control" id="nome" name="nome" value="{{ area.nome if area else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="tipo_armazenamento" class="form-label">Tipo de Armazenamento</label>
+            <select class="form-select" id="tipo_armazenamento" name="tipo_armazenamento" required>
+                <option value="refrigerado" {% if area and area.tipo_armazenamento == 'refrigerado' %}selected{% endif %}>Refrigerado</option>
+                <option value="congelado" {% if area and area.tipo_armazenamento == 'congelado' %}selected{% endif %}>Congelado</option>
+                <option value="seco" {% if area and area.tipo_armazenamento == 'seco' %}selected{% endif %}>Seco</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">{{ acao }} Área</button>
+        <a href="{{ url_for('listar_areas_admin') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+

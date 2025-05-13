@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ acao }} Produto no Catálogo - Laticínios Armazém{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ acao }} Produto no Catálogo</h2>
+
+    {% include '_alerts.html' %}
+
+    <form method="POST" action="">
+        <div class="mb-3">
+            <label for="id_produto" class="form-label">ID do Produto</label>
+            <input type="text" class="form-control" id="id_produto" name="id_produto" value="{{ produto.id_produto if produto else '' }}" {% if acao == 'Editar' %}readonly{% endif %} required>
+            {% if acao == 'Editar' %}<small class="form-text text-muted">O ID do produto não pode ser alterado após a criação.</small>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label for="nome" class="form-label">Nome do Produto</label>
+            <input type="text" class="form-control" id="nome" name="nome" value="{{ produto.nome if produto else '' }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">{{ acao }} Produto</button>
+        <a href="{{ url_for('listar_produtos_catalogo_admin') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+
